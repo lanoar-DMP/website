@@ -14,3 +14,7 @@ dist
 .env.production
 *.env
 !.env.example
+
+# Python cache files
+__pycache__/
+*.pyc
