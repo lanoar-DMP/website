@@ -1,0 +1,131 @@
+---
+title: "How I built a custom AI-powered trading terminal with Claude and Python"
+date: "2026-05-20"
+description: "A step-by-step walkthrough of connecting FRED API, DeFiLlama, and an LLM into a single dashboard that surfaces cross-domain alpha signals."
+tags: ["ai", "diy", "tutorial", "python", "nextjs"]
+---
+
+Building a trading terminal that bridges TradFi macro data with on-chain crypto metrics is easier than most people think. Here is exactly how I did it with open-source tools, a few API keys, and an LLM orchestrator.
+
+## The Architecture
+
+The system has four layers:
+
+```
+External APIs (FRED, DeFiLlama, CMC, Yahoo)
+      │
+      ▼
+Data Ingestion Service (Python, asyncpg)
+      │
+      ▼
+PostgreSQL + TimescaleDB (single source of truth)
+      │
+      ▼
+AI Orchestrator (Claude 3.5 Sonnet)
+      │
+      ▼
+Next.js Dashboard (terminal-style UI)
+```
+
+Each layer is a Docker container. The entire stack runs on a Mac Mini.
+
+## Layer 1: The Data Pipeline
+
+The first thing I built was a Python service that polls six external APIs on configurable schedules.
+
+```python
+# workers/scheduler.py — simplified cron definitions
+SCHEDULE = {
+    "fred": {"interval": 3600, "series": ["CPIAUCSL", "FEDFUNDS", "UNRATE", "T10YIE"]},
+    "defillama": {"interval": 1800, "endpoints": ["/protocols", "/pools"]},
+    "yfinance": {"interval": 60, "tickers": ["SPY", "QQQ", "BTC-USD", "ETH-USD"]},
+    "cmc": {"interval": 300, "endpoints": ["/listings/latest", "/quotes/latest"]},
+}
+```
+
+Each worker runs as an async task with exponential backoff and circuit breaker logic. I used `asyncpg` for PostgreSQL and `httpx` for HTTP requests.
+
+The key insight: **start with the free APIs first.** FRED, DeFiLlama, and Yahoo Finance require zero API keys for basic usage.
+
+## Layer 2: The Database Schema
+
+I used PostgreSQL 16 with TimescaleDB for time-series optimization.
+
+```sql
+CREATE TABLE macro_indicators (
+    id BIGSERIAL PRIMARY KEY,
+    series_id TEXT NOT NULL,
+    date DATE NOT NULL,
+    value DOUBLE PRECISION,
+    unit TEXT NOT NULL DEFAULT 'units',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (series_id, date)
+);
+
+SELECT create_hypertable('macro_indicators', 'date');
+```
+
+The `UNIQUE (series_id, date)` constraint is critical — it prevents duplicate observations when re-fetching.
+
+## Layer 3: The AI Orchestrator
+
+This is where things get interesting. Instead of building a custom model, I use Claude 3.5 Sonnet with structured context assembly.
+
+The prompt template looks like this:
+
+```
+You are the Yield Arbitrage Monitor.
+Current context:
+- Fed Funds rate: {fed_funds}%
+- 3-month T-bill: {t_bill_3m}%
+- Aave USDC deposit APY: {aave_usdc_apy}%
+- Compound USDC supply APY: {compound_usdc_apy}%
+
+Analyze the spread between TradFi risk-free rates and DeFi stablecoin yields.
+Is there a statistically significant arbitrage opportunity?
+Output as JSON: {{ signal, confidence, entry, exit, reasoning }}
+```
+
+The results are stored in an `alpha_signals` table and displayed on the frontend dashboard.
+
+## Layer 4: The Frontend
+
+The dashboard uses Next.js 14 App Router with Tailwind for styling. The terminal aesthetic (monospace font, dark background, green/red color semantics) makes the data density readable.
+
+Key components:
+
+- **Overview**: Global macro snapshot, crypto heatmap, top alpha signals
+- **Macro Dashboard**: Interactive FRED charts with date range controls
+- **Markets Dashboard**: Crypto price grid, prediction market probabilities
+- **Alpha Signals Feed**: Chronological list of detected signals with severity badges
+
+## What It Costs to Run
+
+| Service | Monthly Cost |
+|---------|-------------|
+| FRED API | Free |
+| DeFiLlama API | Free |
+| Yahoo Finance | Free |
+| PostgreSQL (Docker) | Free |
+| Claude API (50 signal evaluations/hour) | ~$50 |
+| Vercel hosting | Free tier |
+| **Total** | **~$50/month** |
+
+## Key Lessons Learned
+
+1. **Start with the data pipeline.** The AI is useless without clean, fresh data.
+2. **Handle API failures gracefully.** External APIs go down. Cache everything, retry with backoff, serve stale data when fresh data fails.
+3. **Log everything to an audit ledger.** Every data point, every signal, every error. You need this for debugging and for compliance.
+4. **The terminal UI is not a gimmick.** High information density screens require deliberate design. Monospace numbers align perfectly. Color carries meaning (green for bullish, red for bearish).
+
+## The Code
+
+The full source code is available on my GitHub. The `docker-compose.yml` starts everything with one command:
+
+```bash
+docker compose up -d
+```
+
+Next article: How I built the Shadow Ledger — a verification layer that detects inflated TVL in DeFi protocols.
+
+<MacroChart seriesId="CPIAUCSL" />

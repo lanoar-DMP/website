@@ -1,0 +1,26 @@
+services:
+  data-ingestion:
+    environment:
+      - LOG_LEVEL=DEBUG
+      - POLL_INTERVAL_SECONDS=30
+    volumes:
+      - ./data-ingestion:/app
+      - ./.env:/app/.env
+
+  ai-orchestrator:
+    environment:
+      - LOG_LEVEL=DEBUG
+      - POLL_INTERVAL_SECONDS=120
+    volumes:
+      - ./ai-orchestrator:/app
+      - ./.env:/app/.env
+
+  frontend:
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev

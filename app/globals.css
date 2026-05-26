@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 120 100% 50%;
+    --card: 0 0% 6%;
+    --card-foreground: 120 100% 50%;
+    --border: 0 0% 10%;
+    --muted: 0 0% 50%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 120 100% 50%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+  }
+}
+
+/* Scan line overlay effect */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.03) 0px,
+    rgba(0, 0, 0, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+body {
+  background-color: #0a0a0a;
+  color: #00ff00;
+  font-family: "Geist Mono", "Geist", monospace;
+}
+
+/* Blinking cursor for terminal feel */
+.terminal-cursor::after {
+  content: "█";
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Subtle text selection in terminal green */
+::selection {
+  background: rgba(0, 255, 0, 0.2);
+  color: #00ff00;
+}
+
+/* Scrollbar styling for terminal feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}

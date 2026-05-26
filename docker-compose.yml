@@ -1,0 +1,89 @@
+version: "3.9"
+
+services:
+  db-core:
+    image: timescale/timescaledb:2.16.1-pg16
+    container_name: holyterminal-db-core
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - holyterminal_pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - holyterminal_net
+
+  blnk:
+    image: jerryenebeli/blnk:latest
+    ports:
+      - "7789:7789"
+    environment:
+      - BLNK_POSTGRES_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db-core:5432/${POSTGRES_DB}?sslmode=disable
+      - BLNK_API_KEY=${BLNK_API_KEY}
+    depends_on:
+      db-core:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - holyterminal_net
+
+  data-ingestion:
+    build:
+      context: ./data-ingestion
+    container_name: holyterminal-data-ingestion
+    depends_on:
+      db-core:
+        condition: service_healthy
+      blnk:
+        condition: service_started
+    env_file:
+      - .env
+    volumes:
+      - ./data-ingestion:/app
+    networks:
+      - holyterminal_net
+
+  frontend:
+    build:
+      context: .
+    container_name: holyterminal-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      db-core:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    networks:
+      - holyterminal_net
+
+  ai-orchestrator:
+    build:
+      context: ./ai-orchestrator
+    container_name: holyterminal-ai-orchestrator
+    ports:
+      - "5678:5678"
+    depends_on:
+      db-core:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - holyterminal_net
+
+volumes:
+  holyterminal_pgdata:
+
+networks:
+  holyterminal_net:
+    driver: bridge

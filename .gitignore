@@ -1,0 +1,16 @@
+.next
+node_modules
+out
+dist
+.DS_Store
+*.log
+
+# clerk configuration (can include secrets)
+/.clerk/
+
+# Environment files — keep secrets out of version control
+.env
+.env.local
+.env.production
+*.env
+!.env.example

@@ -1,0 +1,15 @@
+node_modules/
+.next/
+.env
+.git/
+.gitignore
+*.md
+!README.md
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.log
+postgres_data/
+holyterminal_pgdata/
